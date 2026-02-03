@@ -238,7 +238,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
+            pointer-events: all;
         }
 
         .journey-path {
@@ -247,6 +247,7 @@
             fill: none;
             opacity: 0.6;
             filter: drop-shadow(0 0 3px rgba(212, 175, 55, 0.5));
+            pointer-events: none;
         }
 
         .journey-path-walked {
@@ -258,6 +259,7 @@
             stroke-dashoffset: 2000;
             animation: drawPath 4s ease-out forwards;
             filter: drop-shadow(0 0 3px rgba(90, 124, 90, 0.5));
+            pointer-events: none;
         }
 
         @keyframes drawPath {
@@ -284,6 +286,46 @@
 
         .location-label {
             display: none; /* Hide all location labels */
+        }
+
+        .milestone-marker {
+            cursor: pointer;
+            transition: r 0.2s;
+            pointer-events: all;
+        }
+
+        .milestone-marker:hover {
+            r: 8 !important;
+        }
+
+        .tooltip {
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .tooltip-visible {
+            opacity: 1;
+        }
+
+        .tooltip-bg {
+            fill: #f9f3e8;
+            stroke: #8b7355;
+            stroke-width: 2;
+            filter: drop-shadow(0 2px 4px rgba(61, 40, 23, 0.3));
+        }
+
+        .tooltip-title {
+            fill: #5a3825;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: Georgia, serif;
+        }
+
+        .tooltip-text {
+            fill: #6b4423;
+            font-size: 11px;
+            font-family: Georgia, serif;
         }
 
         .current-location-info {
@@ -384,6 +426,26 @@
         
         const TOTAL_DISTANCE = 1779;
         
+        // Fun facts about each location
+        const locationFacts = {
+            "Hobbiton": "Frodo's 111th birthday party had 144 guests - a Hobbit 'gross'!",
+            "Bucklebury Ferry (Old Forest)": "The hobbits narrowly escaped the Black Riders here on September 25th.",
+            "Bree (The Prancing Pony)": "Strider revealed himself here - earning 3 silver pennies per room.",
+            "Weathertop (Amon Sûl)": "Frodo was stabbed by the Witch-king's Morgul blade on October 6th.",
+            "Ford of Bruinen": "Arwen summoned a flood of white horses to save Frodo from the Nine.",
+            "Rivendell": "The Council of Elrond took place on October 25th, 3018 of the Third Age.",
+            "West-Gate of Moria": "The password 'Mellon' (friend) opened doors sealed since TA 1981.",
+            "East-Gate of Moria": "Gandalf fell battling the Balrog on January 15th, TA 3019.",
+            "Lothlórien (Caras Galadhon)": "Galadriel's mirror showed both past and possible futures to Frodo and Sam.",
+            "Amon Hen": "Frodo donned the Ring here, seeing the Eye before fleeing to Mordor alone.",
+            "Emyn Muil": "The Fellowship broke here on February 26th - Boromir fell to many arrows.",
+            "End of Dead Marshes": "Gollum led them through paths he knew from journeying to Mordor before.",
+            "The Black Gate": "Frodo saw 100,000+ orcs marching - they turned to the secret path instead.",
+            "Henneth Annûn (Ithilien)": "Faramir's secret refuge behind a waterfall. He let them go unlike Boromir.",
+            "Minas Morgul (Cirith Ungol)": "The dead city glowed with corpse-light - Frodo nearly gave in to the Ring.",
+            "Mount Doom": "Gollum fell with the Ring on March 25th, TA 3019 - ending Sauron forever."
+        };
+        
         const journeyLegs = [
             { start: "Hobbiton", end: "Bucklebury Ferry (Old Forest)", distance: 35, x1: 387, y1: 295, x2: 432, y2: 293 },
             { start: "Bucklebury Ferry (Old Forest)", end: "Bree (The Prancing Pony)", distance: 55, x1: 432, y1: 293, x2: 464, y2: 294 },
@@ -465,6 +527,11 @@
             const svg = document.getElementById('mapOverlay');
             svg.innerHTML = '';
             
+            // Create tooltip group (will be moved to front later)
+            const tooltipGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            tooltipGroup.setAttribute('class', 'tooltip');
+            tooltipGroup.setAttribute('id', 'tooltip');
+            
             // Calculate current position coordinates
             const progressRatio = currentLegProgress / currentLeg.distance;
             const currentX = currentLeg.x1 + (currentLeg.x2 - currentLeg.x1) * progressRatio;
@@ -507,34 +574,117 @@
             walkedPath.setAttribute('d', walkedPathPoints.join(' '));
             svg.appendChild(walkedPath);
             
-            // Draw location markers (but no labels)
+            // Helper function to show tooltip
+            function showTooltip(x, y, locationName) {
+                const tooltip = document.getElementById('tooltip');
+                tooltip.innerHTML = '';
+                
+                const fact = locationFacts[locationName] || "A significant location on the journey.";
+                
+                // Calculate tooltip dimensions
+                const maxWidth = 250;
+                const padding = 10;
+                const lineHeight = 14;
+                
+                // Word wrap the text
+                const words = fact.split(' ');
+                const lines = [];
+                let currentLine = '';
+                
+                words.forEach(word => {
+                    const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                    if (testLine.length * 6 > maxWidth - padding * 2) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = testLine;
+                    }
+                });
+                if (currentLine) lines.push(currentLine);
+                
+                const boxHeight = padding * 2 + 20 + lines.length * lineHeight + 5;
+                
+                // Position tooltip (adjust if too close to edges)
+                let tooltipX = x + 15;
+                let tooltipY = y - boxHeight / 2;
+                
+                if (tooltipX + maxWidth > 1280) tooltipX = x - maxWidth - 15;
+                if (tooltipY < 10) tooltipY = 10;
+                if (tooltipY + boxHeight > 950) tooltipY = 950 - boxHeight;
+                
+                // Background
+                const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                bg.setAttribute('class', 'tooltip-bg');
+                bg.setAttribute('x', tooltipX);
+                bg.setAttribute('y', tooltipY);
+                bg.setAttribute('width', maxWidth);
+                bg.setAttribute('height', boxHeight);
+                bg.setAttribute('rx', 8);
+                tooltip.appendChild(bg);
+                
+                // Title
+                const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                title.setAttribute('class', 'tooltip-title');
+                title.setAttribute('x', tooltipX + padding);
+                title.setAttribute('y', tooltipY + padding + 14);
+                title.textContent = locationName;
+                tooltip.appendChild(title);
+                
+                // Fact lines
+                lines.forEach((line, i) => {
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('class', 'tooltip-text');
+                    text.setAttribute('x', tooltipX + padding);
+                    text.setAttribute('y', tooltipY + padding + 20 + 10 + (i * lineHeight));
+                    text.textContent = line;
+                    tooltip.appendChild(text);
+                });
+                
+                tooltip.setAttribute('class', 'tooltip tooltip-visible');
+            }
+            
+            function hideTooltip() {
+                const tooltip = document.getElementById('tooltip');
+                tooltip.setAttribute('class', 'tooltip');
+            }
+            
+            // Draw location markers with hover interaction
             journeyLegs.forEach((leg, i) => {
                 // Start marker
                 if (i === 0) {
                     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('class', 'completed-marker');
+                    circle.setAttribute('class', 'completed-marker milestone-marker');
                     circle.setAttribute('cx', leg.x1);
                     circle.setAttribute('cy', leg.y1);
                     circle.setAttribute('r', 6);
+                    
+                    circle.addEventListener('mouseenter', () => showTooltip(leg.x1, leg.y1, leg.start));
+                    circle.addEventListener('mouseleave', hideTooltip);
+                    
                     svg.appendChild(circle);
                 }
                 
                 // End marker
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('class', 'milestone-marker');
+                
                 if (i < legIndex) {
-                    circle.setAttribute('class', 'completed-marker');
+                    circle.setAttribute('class', 'completed-marker milestone-marker');
                     circle.setAttribute('r', 5);
                 } else if (i === legIndex) {
-                    circle.setAttribute('fill', '#999');
-                    circle.setAttribute('opacity', '0.5');
-                    circle.setAttribute('r', 5);
+                    circle.setAttribute('fill', '#3d2817');
+                    circle.setAttribute('r', 3);
                 } else {
-                    circle.setAttribute('fill', '#999');
-                    circle.setAttribute('opacity', '0.4');
-                    circle.setAttribute('r', 4);
+                    circle.setAttribute('fill', '#3d2817');
+                    circle.setAttribute('r', 3);
                 }
+                
                 circle.setAttribute('cx', leg.x2);
                 circle.setAttribute('cy', leg.y2);
+                
+                circle.addEventListener('mouseenter', () => showTooltip(leg.x2, leg.y2, leg.end));
+                circle.addEventListener('mouseleave', hideTooltip);
+                
                 svg.appendChild(circle);
             });
             
@@ -547,6 +697,9 @@
             positionDot.setAttribute('stroke', '#3d2817');
             positionDot.setAttribute('stroke-width', 1);
             svg.appendChild(positionDot);
+            
+            // Add tooltip group last (so it appears on top)
+            svg.appendChild(tooltipGroup);
         }
     </script>
 </body>
