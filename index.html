@@ -364,6 +364,9 @@
     <header>
         <h1>One Does Not Simply Walk Into Mordor</h1>
         <p class="subtitle">A Journey of 1,779 Miles Across Middle Earth</p>
+        <div style="margin-top: 15px; font-size: 0.9em; color: #8b7355; font-style: normal;">
+            <p>Left The Shire: January 1st, 2026</p>
+        </div>
     </header>
 
     <div class="container">
@@ -416,12 +419,19 @@
                 <p><strong>Distance into leg:</strong> 24.3 miles of 120 miles</p>
             </div>
         </div>
+
+        <div style="text-align: center; margin-top: 20px; padding: 15px; background: #f4ead5; border-radius: 8px; color: #6b4423; font-size: 0.9em;">
+            <strong>Updated:</strong> <span id="lastUpdated">February 3, 2026</span>
+        </div>
     </div>
 
     <script>
         // ====== UPDATE YOUR MILES HERE ======
         // Just change this number and save the file!
         const CURRENT_MILES = 114.3;
+        
+        // Update this date when you update your miles
+        const LAST_UPDATED = "February 3, 2026";
         // ====================================
         
         const TOTAL_DISTANCE = 1779;
@@ -466,6 +476,7 @@
 
         // Initialize on page load
         window.addEventListener('load', () => {
+            document.getElementById('lastUpdated').textContent = LAST_UPDATED;
             updateStats();
         });
 
